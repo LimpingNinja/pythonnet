@@ -37,5 +37,53 @@ namespace Python.Runtime
             PythonException.ThrowIfIsNull(m);
             return new PyModule(ref m);
         }
+
+        public static bool Exists(string name)
+        {
+            // first check if there is an existing module
+            BorrowedReference modules = Runtime.PyImport_GetModuleDict();
+            BorrowedReference m = Runtime.PyDict_GetItemString(modules, name);
+            return !m.IsNull;
+        }
+
+        public static PyModule Get(string name)
+        {
+            NewReference op;
+
+            // first check if there is an existing module
+            BorrowedReference modules = Runtime.PyImport_GetModuleDict();
+            BorrowedReference m = Runtime.PyDict_GetItemString(modules, name);
+            // there is not a module by this name
+            if (m.IsNull || !Runtime.PyObject_TypeCheck(m, new BorrowedReference(Runtime.PyModuleType))) return null;
+            // return module
+            op = new NewReference(m);
+            return new PyModule(ref op);
+        }
+
+        public static PyModule Create(string name, string filename = "none")
+        {
+            if (Exists(name)) return null;
+            BorrowedReference modules = Runtime.PyImport_GetModuleDict();
+            // create a new module
+            var op = Runtime.PyModule_New(name);
+            PythonException.ThrowIfIsNull(op);
+
+            // setup the module basics (__builtins__ and __file__)
+            BorrowedReference globals = Runtime.PyModule_GetDict(new BorrowedReference(op.DangerousGetAddress()));
+            PythonException.ThrowIfIsNull(globals);
+            BorrowedReference __builtins__ = Runtime.PyEval_GetBuiltins();
+            PythonException.ThrowIfIsNull(__builtins__);
+            int rc = Runtime.PyDict_SetItemString(globals, "__builtins__", __builtins__);
+            PythonException.ThrowIfIsNotZero(rc);
+            rc = Runtime.PyDict_SetItemString(globals, "__file__",
+                new BorrowedReference(filename.ToPython().Handle));
+            PythonException.ThrowIfIsNotZero(rc);
+
+            // add to sys.modules
+            rc = Runtime.PyDict_SetItemString(modules, name, op);
+            PythonException.ThrowIfIsNotZero(rc);
+
+            return new PyModule(ref op);
+        }
     }
 }
