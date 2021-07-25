@@ -46,20 +46,6 @@ namespace Python.Runtime
             return !m.IsNull;
         }
 
-        public static PyModule Get(string name)
-        {
-            NewReference op;
-
-            // first check if there is an existing module
-            BorrowedReference modules = Runtime.PyImport_GetModuleDict();
-            BorrowedReference m = Runtime.PyDict_GetItemString(modules, name);
-            // there is not a module by this name
-            if (m.IsNull || !Runtime.PyObject_TypeCheck(m, new BorrowedReference(Runtime.PyModuleType))) return null;
-            // return module
-            op = new NewReference(m);
-            return new PyModule(ref op);
-        }
-
         public static PyModule Create(string name, string filename = "none")
         {
             if (Exists(name)) return null;
